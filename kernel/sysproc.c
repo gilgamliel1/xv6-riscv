@@ -6,10 +6,16 @@
 #include "spinlock.h"
 #include "proc.h"
 
+
+
 uint64
 sys_exit(void)
 {
   int n;
+  char msg[32];
+  argstr(1, msg, sizeof(msg)); // Fetch the exit message from user space
+  struct proc *p = myproc();
+  safestrcpy(p->exit_msg, msg, sizeof(p->exit_msg)); // Copy into PCB
   argint(0, &n);
   exit(n);
   return 0;  // not reached
