@@ -6,17 +6,16 @@
 #include "spinlock.h"
 #include "proc.h"
 
-uint64
-sys_exit(void)
+uint64 sys_exit(void)
 {
-  int n;
-  char *msg;
+  int status;
+  char msg[32];
 
-  argint(0, &n);         // exit status
-  argstr(1, &msg);       // exit message
+  argint(0, &status);
+  argstr(1, msg, sizeof(msg));  // ✅ correct usage
 
-  exit(n, msg);          // modified exit
-  return 0;              // never returns
+  exit(status, msg);  // pass buffer to exit()
+  return 0;
 }
 
 uint64
@@ -36,7 +35,7 @@ sys_wait(void)
 {
   uint64 p;
   argaddr(0, &p);
-  return wait(p , 'goodbye');
+  return wait(p ,"");
 }
 
 uint64

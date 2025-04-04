@@ -4,5 +4,5 @@
 int main() {
   int size = memsize();
   printf("Memory size: %d bytes\n", size);
-  exit(0);
+  exit(0 , "");
 }

@@ -420,6 +420,7 @@ wait(uint64 addr, char* msg)
             return -1;
           }
           copyout(p->pagetable, (uint64)msg, pp->exit_msg, 32); //task 3.3
+          printf("Process %d exited with message: %s\n", pid, pp->exit_msg);
           freeproc(pp);
           release(&pp->lock);
           release(&wait_lock);
