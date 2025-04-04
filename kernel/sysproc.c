@@ -6,19 +6,17 @@
 #include "spinlock.h"
 #include "proc.h"
 
-
-
 uint64
 sys_exit(void)
 {
   int n;
-  char msg[32];
-  argstr(1, msg, sizeof(msg)); // Fetch the exit message from user space
-  struct proc *p = myproc();
-  safestrcpy(p->exit_msg, msg, sizeof(p->exit_msg)); // Copy into PCB
-  argint(0, &n);
-  exit(n);
-  return 0;  // not reached
+  char *msg;
+
+  argint(0, &n);         // exit status
+  argstr(1, &msg);       // exit message
+
+  exit(n, msg);          // modified exit
+  return 0;              // never returns
 }
 
 uint64
@@ -38,7 +36,7 @@ sys_wait(void)
 {
   uint64 p;
   argaddr(0, &p);
-  return wait(p);
+  return wait(p , 'goodbye');
 }
 
 uint64
@@ -94,4 +92,10 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+uint64
+sys_memsize(void)
+{
+  struct proc *p = myproc();
+  return p->sz;  // p->sz holds the size of this process's memory in bytes
 }
