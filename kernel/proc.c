@@ -344,7 +344,7 @@ reparent(struct proc *p)
 // An exited process remains in the zombie state
 // until its parent calls wait().
 void
-exit(int status , char* msg)
+exit(int status , char* exit_msg) //function signature changed
 {
   struct proc *p = myproc();
 
@@ -377,12 +377,13 @@ exit(int status , char* msg)
 
   p->xstate = status;
   p->state = ZOMBIE;
-  if (msg) {
-    argstr(1, p->exit_msg, sizeof(p->exit_msg));
+  
+  if (exit_msg) { // Check if an exit message was provided by the user
+    argstr(1, p->exit_msg, sizeof(p->exit_msg)); // Copy the exit message from user space to p->exit_msg in kernel
   } else {
-    p->exit_msg[0] = '\0'; 
+    p->exit_msg[0] = '\0'; // If no message provided, set an empty string as the exit message
   }
-
+  
   release(&wait_lock);
 
   // Jump into the scheduler, never to return.
@@ -393,7 +394,7 @@ exit(int status , char* msg)
 // Wait for a child process to exit and return its pid.
 // Return -1 if this process has no children.
 int
-wait(uint64 addr, char* msg)
+wait(uint64 addr, char* exit_msg)
 {
   struct proc *pp;
   int havekids, pid;
@@ -413,14 +414,20 @@ wait(uint64 addr, char* msg)
         if(pp->state == ZOMBIE){
           // Found one.
           pid = pp->pid;
+
+          // Copy the child's exit status to the user-provided address, if any.
           if(addr != 0 && copyout(p->pagetable, addr, (char *)&pp->xstate,
                                   sizeof(pp->xstate)) < 0) {
             release(&pp->lock);
             release(&wait_lock);
             return -1;
           }
-          copyout(p->pagetable, (uint64)msg, pp->exit_msg, 32); //task 3.3
-          printf("Process %d exited with message: %s\n", pid, pp->exit_msg);
+
+          // New for Task 3.3: copy the child's exit message to user space
+          // 'exit_msg' is a user-provided pointer; we copy the child's message there
+          copyout(p->pagetable, (uint64)exit_msg, pp->exit_msg, 32); // task 3.3
+
+          // Clean up the child process now that its status and message have been collected
           freeproc(pp);
           release(&pp->lock);
           release(&wait_lock);
@@ -437,9 +444,10 @@ wait(uint64 addr, char* msg)
     }
     
     // Wait for a child to exit.
-    sleep(p, &wait_lock);  //DOC: wait-sleep
+    sleep(p, &wait_lock);  // DOC: wait-sleep
   }
 }
+
 
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.

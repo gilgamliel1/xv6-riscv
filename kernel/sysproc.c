@@ -8,13 +8,13 @@
 
 uint64 sys_exit(void)
 {
-  int status;
-  char msg[32];
+  int n;
+  char exit_msg[32];
 
-  argint(0, &status);
-  argstr(1, msg, sizeof(msg));  // ✅ correct usage
+  argint(0, &n);
+  argstr(1, exit_msg, 32);  // ✅ correct usage
 
-  exit(status, msg);  // pass buffer to exit()
+  exit(n, exit_msg);  // pass buffer to exit()
   return 0;
 }
 
@@ -33,9 +33,10 @@ sys_fork(void)
 uint64
 sys_wait(void)
 {
-  uint64 p;
+  uint64 p , exit_msg;
   argaddr(0, &p);
-  return wait(p ,"");
+  argaddr(1, &exit_msg);
+  return wait(p, (char*) exit_msg);
 }
 
 uint64

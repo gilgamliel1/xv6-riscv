@@ -54,11 +54,12 @@ void panic(char*);
 struct cmd *parsecmd(char*);
 void runcmd(struct cmd*) __attribute__((noreturn));
 
-// Execute cmd.  Never returns.
+// Execute cmd. Never returns.
 void
 runcmd(struct cmd *cmd)
 {
   int p[2];
+  char exit_msg[32]; // buffer to store exit message from child
   struct backcmd *bcmd;
   struct execcmd *ecmd;
   struct listcmd *lcmd;
@@ -77,25 +78,28 @@ runcmd(struct cmd *cmd)
     if(ecmd->argv[0] == 0)
       exit(1 , "");
     exec(ecmd->argv[0], ecmd->argv);
-    fprintf(2, "exec %s failed\n", ecmd->argv[0]);
+    fprintf(2, "exec %s failed\n", ecmd->argv[0]); // print if exec fails
     break;
 
   case REDIR:
     rcmd = (struct redircmd*)cmd;
-    close(rcmd->fd);
-    if(open(rcmd->file, rcmd->mode) < 0){
+    close(rcmd->fd); // close the original fd (stdin or stdout)
+    if(open(rcmd->file, rcmd->mode) < 0){ // open file for redirection
       fprintf(2, "open %s failed\n", rcmd->file);
       exit(1 , "");
     }
-    runcmd(rcmd->cmd);
+    runcmd(rcmd->cmd); // execute the inner command
     break;
 
   case LIST:
     lcmd = (struct listcmd*)cmd;
     if(fork1() == 0)
-      runcmd(lcmd->left);
-    wait(0,"");
-    runcmd(lcmd->right);
+      runcmd(lcmd->left); // run left side in child
+    wait(0, &exit_msg[0]); // wait for left command, capture exit message
+    write(1, "Exit message: ", 14); // 1 is the file descriptor for stdout
+    write(1, exit_msg, strlen(exit_msg));
+    write(1, "\n", 1);
+    runcmd(lcmd->right); // run right side after left completes
     break;
 
   case PIPE:
@@ -103,32 +107,40 @@ runcmd(struct cmd *cmd)
     if(pipe(p) < 0)
       panic("pipe");
     if(fork1() == 0){
-      close(1);
-      dup(p[1]);
+      close(1);         // close stdout
+      dup(p[1]);        // replace stdout with write end of pipe
       close(p[0]);
       close(p[1]);
-      runcmd(pcmd->left);
+      runcmd(pcmd->left); // run left command, output goes to pipe
     }
     if(fork1() == 0){
-      close(0);
-      dup(p[0]);
+      close(0);         // close stdin
+      dup(p[0]);        // replace stdin with read end of pipe
       close(p[0]);
       close(p[1]);
-      runcmd(pcmd->right);
+      runcmd(pcmd->right); // run right command, input comes from pipe
     }
     close(p[0]);
     close(p[1]);
-    wait(0,"");
-    wait(0,"");
+    wait(0, &exit_msg[0]); // wait for one child, capture and print message
+    write(1, "Exit message: ", 14); // 1 is the file descriptor for stdout
+    write(1, exit_msg, strlen(exit_msg));
+    write(1, "\n", 1);
+    wait(0, &exit_msg[0]); // wait for the second child (optional second call if needed)
+    wait(0, &exit_msg[0]); // extra wait if three children were spawned
     break;
 
   case BACK:
     bcmd = (struct backcmd*)cmd;
     if(fork1() == 0)
-      runcmd(bcmd->cmd);
+      runcmd(bcmd->cmd); // run in background
+    wait(0, &exit_msg[0]); // wait to report status even if it's background
+    write(1, "Exit message: ", 14); // 1 is the file descriptor for stdout
+    write(1, exit_msg, strlen(exit_msg));
+    write(1, "\n", 1);
     break;
   }
-  exit(0 , "");
+  exit(0 , ""); // exit after command completes
 }
 
 int
@@ -145,31 +157,44 @@ getcmd(char *buf, int nbuf)
 int
 main(void)
 {
-  static char buf[100];
+  char exit_msg[32];         // buffer to store exit message from child
+  static char buf[100];      // input buffer for command line
   int fd;
 
-  // Ensure that three file descriptors are open.
+  // Ensure that three file descriptors (stdin, stdout, stderr) are open.
   while((fd = open("console", O_RDWR)) >= 0){
-    if(fd >= 3){
+    if(fd >= 3){             // if extra fd, close it
       close(fd);
       break;
     }
   }
 
-  // Read and run input commands.
+  // Read and run input commands from the user.
   while(getcmd(buf, sizeof(buf)) >= 0){
+    // Handle 'cd' command in the parent process.
     if(buf[0] == 'c' && buf[1] == 'd' && buf[2] == ' '){
-      // Chdir must be called by the parent, not the child.
-      buf[strlen(buf)-1] = 0;  // chop \n
-      if(chdir(buf+3) < 0)
+      buf[strlen(buf)-1] = 0;           // remove trailing newline
+      if(chdir(buf+3) < 0)              // change directory
         fprintf(2, "cannot cd %s\n", buf+3);
       continue;
     }
+
+    // Fork and execute the command in a child process.
     if(fork1() == 0)
       runcmd(parsecmd(buf));
-    wait(0,"");
+
+    // Wait for the child and retrieve the exit message.
+    wait(0, exit_msg);
+
+    // Print the exit message if there is one.
+    if(strlen(exit_msg) > 0)
+    write(1, "Exit message: ", 14); // 1 is the file descriptor for stdout
+    write(1, exit_msg, strlen(exit_msg));
+    write(1, "\n", 1);
   }
-  exit(0 , "");
+
+  // Exit shell when input ends.
+  exit(0, "");
 }
 
 void

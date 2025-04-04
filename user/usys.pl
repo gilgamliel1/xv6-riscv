@@ -16,8 +16,8 @@ sub entry {
 }
 	
 entry("fork");
-entry("exit");
-entry("wait");
+entry("exit", "int", "char*");
+entry("wait", "int*", "char*");
 entry("pipe");
 entry("read");
 entry("write");
