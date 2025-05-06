@@ -34,6 +34,11 @@ entry("chdir");
 entry("dup");
 entry("getpid");
 entry("memsize");
+entry("peterson_create");
+entry("peterson_acquire");
+entry("peterson_release");
+entry("peterson_destroy");
+
 
 entry("sbrk");
 entry("sleep");

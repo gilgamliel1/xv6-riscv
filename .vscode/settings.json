@@ -3,5 +3,8 @@
         "types.h": "c",
         "riscv.h": "c",
         "defs.h": "c",
+        "__mutex_base": "c",
+        "mutex": "c",
+        "proc.h": "c"
     },
 }

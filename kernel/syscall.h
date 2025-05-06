@@ -21,4 +21,9 @@
 #define SYS_mkdir  20
 #define SYS_close  21
 #define SYS_memsize  22
+#define SYS_peterson_create  23
+#define SYS_peterson_acquire 24
+#define SYS_peterson_release 25
+#define SYS_peterson_destroy 26
+
 
